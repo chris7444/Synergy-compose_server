@@ -1,0 +1,144 @@
+###
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###
+---
+- hosts: all
+  vars:
+    config: "{{ playbook_dir }}/oneview_config.json"
+    deployment_subnet_name: Appliance IPv4 Subnet1
+    management_subnet_name: Appliance IPv4 Subnet2
+    deployment_range_name: Appliance IP range1
+    management_range_name: Appliance IP range2
+    disabled_range_name: DISABLED - Appliance IP range
+    deployment_network_name: VLAN508
+    deployment_vlanid: 508
+    management_network_name: VLAN504
+    management_vlanid: 504 
+  tasks:
+    - name: Ensure first IPv4 Subnet exists for the IPv4 Range
+      oneview_id_pools_ipv4_subnet:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ deployment_subnet_name }}'
+          type: Subnet
+          networkId: 10.50.8.0
+          subnetmask: 255.255.252.0
+          gateway: 10.50.8.1
+          domain: ipv4.subnet.example1.com
+          dnsServers:
+            - 10.50.0.10
+            - 10.20.0.10
+      delegate_to: localhost
+
+    - set_fact: deployment_subnet_uri="{{ id_pools_ipv4_subnet['uri'] }}"
+
+    - name: Ensure the IPV4 Range '{{ range_name }}' exists
+      oneview_id_pools_ipv4_range:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ deployment_range_name }}'
+          subnetUri: '{{ deployment_subnet_uri }}'
+          type: Range
+          rangeCategory: Custom
+          startAddress: 10.50.8.80
+          endAddress: 10.50.8.85
+      delegate_to: localhost
+
+    - name: Ensure the IPV4 Range is enabled
+      oneview_id_pools_ipv4_range:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ deployment_range_name }}'
+          subnetUri: '{{ deployment_subnet_uri }}'
+          enabled: True
+      delegate_to: localhost
+
+    - name: Ensure second IPv4 Subnet exists for the IPv4 Range
+      oneview_id_pools_ipv4_subnet:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ management_subnet_name }}'
+          type: Subnet
+          networkId: 10.50.4.0
+          subnetmask: 255.255.252.0
+          gateway: 10.50.4.1
+          domain: ipv4.subnet.example2.com
+          dnsServers:
+            - 10.50.0.10
+            - 10.20.0.10
+      delegate_to: localhost
+
+    - set_fact: management_subnet_uri="{{ id_pools_ipv4_subnet['uri'] }}"
+
+    - name: Ensure the IPV4 Range '{{ management_range_name }}' exists
+      oneview_id_pools_ipv4_range:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ management_range_name }}'
+          subnetUri: '{{ management_subnet_uri }}'
+          type: Range
+          rangeCategory: Custom
+          startAddress: 10.50.4.75
+          endAddress: 10.50.4.78
+      delegate_to: localhost
+
+    - name: Ensure the secodn  IPV4 Range is enabled
+      oneview_id_pools_ipv4_range:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ management_range_name }}'
+          subnetUri: '{{ management_subnet_uri }}'
+          enabled: True
+      delegate_to: localhost
+
+    - name: Create a deployment network
+      oneview_ethernet_network:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ deployment_network_name }}'
+          vlanId: '{{ deployment_vlanid }}'
+          subnetUri: '{{ deployment_subnet_uri}}' 
+          ethernetNetworkType: Tagged
+          purpose: General
+          smartLink: true
+          privateNetwork: false
+          bandwidth:
+              maximumBandwidth: 20000
+              typicalBandwidth: 10000
+      delegate_to: localhost
+
+    - name: Create a management network
+      oneview_ethernet_network:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: '{{ management_network_name }}'
+          vlanId: '{{ management_vlanid }}'
+          subnetUri: '{{ management_subnet_uri }}'
+          ethernetNetworkType: Tagged
+          purpose: Management
+          smartLink: true
+          privateNetwork: false
+          bandwidth:
+              maximumBandwidth: 20000
+              typicalBandwidth: 5000
+      delegate_to: localhost

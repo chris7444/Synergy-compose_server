@@ -1,0 +1,196 @@
+###
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###
+---
+- hosts: localhost
+  vars:
+    config: "oneview_config.json"
+    server_profile_template_name: Demo_server_profile_template1
+    server_hardware_type_name: SY 480 Gen9 3
+    enclosure_group_name: SYN03_EC
+    os_deployment_plan_name: RHEL-COPY
+    inventory_hostname: test_rhel
+    server_hardware_name: SYN03_Frame1, bay 1
+  
+  tasks:
+    - name: Gather facts about os deployment plan
+      oneview_os_deployment_plan_facts:
+        config: "{{ config }}"
+        name: "{{ os_deployment_plan_name }}"
+        options:
+          - osCustomAttributesForServerProfile
+      delegate_to: localhost
+
+    - name: Copy the attributes
+      copy: content="{{os_deployment_plan_custom_attributes | to_nice_yaml}}" dest="nice.yml"
+
+    - name: Get OS custom attributes
+      set_fact: os_custom_attributes_for_server_profile={{ os_deployment_plan_custom_attributes.os_custom_attributes_for_server_profile }}
+    - debug: var=os_custom_attributes_for_server_profile
+
+    - name: Gather facts about deployment network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: vlan512
+
+    - name: Get the deployment network
+      set_fact: deployment_network={{ ethernet_networks.0 }}
+
+    - name: Gather facts about management network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: vlan504 
+
+    - name: Get the management network
+      set_fact: management_network={{ ethernet_networks.0 }}
+ 
+    - name: Create a server profile template
+      oneview_server_profile_template:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: "{{ server_profile_template_name }}"
+          serverHardwareTypeName: "{{ server_hardware_type_name }}"
+          enclosureGroupName: "{{ enclosure_group_name }}"
+          bios:
+            manageBios: false 
+          boot:
+            manageBoot: true
+            order:
+              - "HardDisk"
+          bootMode:
+            manageMode: true
+            mode: UEFIOptimized
+            pxeBootPolicy: Auto           
+          connectionSettings:
+            manageConnections: true
+            connections:
+              - id: 1
+                portId: 'Mezz 3:1-a'
+                name: 'Deployment Network A'
+                functionType: 'Ethernet'
+                networkUri: '{{ deployment_network.uri }}'
+                requestedMbps: 2500
+                requestedVFs: "Auto"
+                boot:
+                  priority: 'Primary'
+                  bootVolumeSource: 'UserDefined'
+                  ethernetBootType: 'iSCSI'
+                  iscsi: 
+                    initiatorNameSource: ProfileInitiatorName
+                    chapLevel: None
+                  bootVlanId: null 
+                ipv4:
+                  ipAddressSource: SubnetPool    
+              - id: 2
+                portId: 'Mezz 3:2-a'
+                name: 'Deployment Network B'
+                functionType: 'Ethernet'
+                networkUri: '{{ deployment_network.uri }}'
+                requestedMbps: 2500
+                requestedVFs: "Auto"
+                boot:
+                  priority: 'Secondary'
+                  bootVolumeSource: 'UserDefined'
+                  ethernetBootType: 'iSCSI'
+                  iscsi: 
+                    initiatorNameSource: ProfileInitiatorName
+                    chapLevel: None
+                  bootVlanId: null 
+                ipv4:
+                  ipAddressSource: SubnetPool    
+              - id: 3
+                portId: 'Mezz 3:1-c'
+                name: 'PROD'
+                functionType: 'Ethernet'
+                networkUri: '{{ management_network.uri }}'
+                requestedMbps: 2500
+                requestedVFs: 0
+                boot:
+                  priority: 'NotBootable'
+          osDeploymentSettings:
+           osDeploymentPlanName: "{{os_deployment_plan_name}}"
+           osCustomAttributes:
+             - name: LogicalVolumeName
+               value: 'new_vol'
+             - name: SSH
+               value: 'Enabled'
+             - name: NewUser
+               value: 'demo'
+             - name: FirstPartitionSize
+               value: '10'
+             - name: LogicalVolumeGroupName
+               value: new_vol_group
+             - name: TotalMgmtNICs
+               value: '1'
+             - name: SecondPartitionSize
+               value: '10'
+             - name: DiskName
+               value: '/dev/sda'
+             - name: DomainName
+               value: 'eco.core.local'
+             - name: LogicalVolumeSize
+               value: '15'
+             - name: NewRootPassword
+               value: 'root'
+             - name: NewUserPassword
+               value: 'demo'
+             - name: HostName
+               value: 'demo'
+             - name: ManagementNIC1.vlanid
+               value: '0'
+             - name: ManagementNIC1.dhcp
+               value: true
+             - name: ManagementNIC1.networkuri
+               value: '{{ management_network.uri }}'
+             - name: ManagementNIC1.connectionid
+               value: '3'
+             - name: ManagementNIC1.ipv4disable
+               value: false
+             - name: ManagementNIC1.constraint
+               value: 'dhcp'
+         
+          scopesUri: "/rest/scopes/resources/rest/server-profiles/d36b6790-e0f9-42ff-966e-0ebe29b5baf6"  
+        params:
+          force: "True"
+      delegate_to: localhost
+      register: result
+    - debug: msg= "{{ result.msg }}"
+    - debug: var=server_profile   
+
+    - name: Create a Server Profile from Server Profile Template
+      oneview_server_profile: 
+        config: "{{ config }}"
+        data:
+          serverProfileTemplateName: "{{ server_profile_template_name }}"
+          serverHardwareName: "{{server_hardware_name }}"
+          name: "{{ inventory_hostname }}"
+        params:
+          force: True
+      delegate_to: localhost
+      register: result
+    - debug: msg= "{{ result.msg }}"
+    - debug: var=server_profile
+
+    - name: Power On the server hardware
+      oneview_server_hardware:
+        config: "{{ config }}"
+        state: power_state_set
+        data:
+            name : '{{ server_hardware_name }}'
+            powerStateData:
+                powerState: "On"
+                powerControl: "MomentaryPress"
+      delegate_to: localhost
