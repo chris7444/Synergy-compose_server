@@ -17,11 +17,13 @@
 - hosts: all
   vars:
     config: "{{ playbook_dir }}/oneview_config.json"
+  vars_files:
+    - "{{ playbook_dir }}/vars/config.yml"
   tasks:
     - name: Ensure that a firmware bundle is present
       oneview_firmware_bundle:
         config: "{{ config }}"
         state: present
-        file_path: "/home/user/Downloads/hp-firmware-hdd-a1b08f8a6b-HPGH-1.1.x86_64.rpm"
+        file_path: "{{ firmware_file_path }}"
       delegate_to: localhost
     - debug: var=firmware_bundle

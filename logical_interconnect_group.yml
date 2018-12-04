@@ -1,0 +1,315 @@
+###
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###
+---
+- hosts: all
+  vars:
+    config: "{{ playbook_dir }}/oneview_config.json"
+  vars_files:
+    - "{{ playbook_dir }}/vars/config.yml"
+  tasks:
+    - name: Gather facts about all Interconnect Types
+      oneview_interconnect_type_facts:
+        config: "{{ config }}"
+      delegate_to: localhost
+
+    - debug: msg="{{interconnect_types | map(attribute='name') | list }}"
+
+    - name: Gather facts about image streamer network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: "{{ is3_network_name }}"
+      delegate_to: localhost
+
+    - debug: var=ethernet_networks
+
+    - set_fact: is3_network_uri="{{ ethernet_networks[0]['uri'] }}"
+
+    - name: Gather facts about an ethernet network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: "{{ network1_name }}"
+      delegate_to: localhost
+
+    - debug: var=ethernet_networks
+
+    - set_fact: network1_uri="{{ ethernet_networks[0]['uri'] }}"
+
+    - name: Gather facts about second ethernet network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: "{{ network2_name }}"
+      delegate_to: localhost
+
+    - debug: var=ethernet_networks
+
+    - set_fact: network2_uri="{{ ethernet_networks[0]['uri'] }}"
+
+    - name: Gather facts about a Fibre Channel Network 
+      oneview_fc_network_facts:
+        config: "{{ config }}"
+        name: "{{ fc_network1_name }}"
+      delegate_to: localhost
+
+    - debug: var=fc_networks
+
+    - set_fact: fc_network1_uri="{{ fc_networks[0]['uri'] }}"
+
+    - name: Gather facts about second  Fibre Channel Network 
+      oneview_fc_network_facts:
+        config: "{{ config }}"
+        name: "{{ fc_network2_name }}"
+      delegate_to: localhost
+
+    - debug: var=fc_networks
+
+    - set_fact: fc_network2_uri="{{ fc_networks[0]['uri'] }}"
+
+    - name: Gather facts about a SAS Interconnect Type by name
+      oneview_sas_interconnect_type_facts:
+        config: "{{ config }}"
+        name: "{{ sas_interconnect_type_name }}"
+      delegate_to: localhost
+
+    - debug: var=sas_interconnect_types
+
+    - set_fact: sas_interconnect_type_uri="{{ sas_interconnect_types[0]['uri'] }}"
+
+    - name: Create a Logical Interconnect Group
+      oneview_logical_interconnect_group:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: "{{ lig1_name }}"
+          uplinkSets:
+            - name: 'iS3'
+              mode: 'Auto'
+              networkType: 'Ethernet'
+              ethernetNetworkType: 'ImageStreamer'     
+              networkUris:
+                - '{{ is3_network_uri }}'
+              logicalPortConfigInfos:
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 62
+                          type: "Port"
+                        - relativeValue: 6
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 62
+                          type: "Port"
+                        - relativeValue: 3
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 67
+                          type: "Port"
+                        - relativeValue: 6
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 67
+                          type: "Port"
+                        - relativeValue: 3
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+            - name: 'SYN_UPLINK'
+              mode: 'Auto'
+              networkType: 'Ethernet'
+              ethernetNetworkType: 'Tagged'     
+              networkUris:
+                - '{{ network1_uri }}'
+                - '{{ network2_uri }}'
+              logicalPortConfigInfos:
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 71
+                          type: "Port"
+                        - relativeValue: 6
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 71
+                          type: "Port"
+                        - relativeValue: 3
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+            - name: 'FC01'
+              mode: 'Auto'
+              networkType: 'FibreChannel'
+              networkUris:
+                - '{{ fc_network1_uri }}'
+              fcMode: "NA"
+              logicalPortConfigInfos:
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 3
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                        - relativeValue: 87
+                          type: "Port"
+            - name: 'FC02'
+              mode: 'Auto'
+              networkType: 'FibreChannel'
+              networkUris:
+                - '{{ fc_network2_uri }}'
+              logicalPortConfigInfos:
+                - desiredSpeed: 'Auto'
+                  logicalLocation:
+                      locationEntries:
+                        - relativeValue: 6
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                        - relativeValue: 87
+                          type: "Port"
+ 
+          enclosureType: 'SY12000'
+          redundancyType: 'HighlyAvailable'
+          enclosureIndexes:
+            - 1
+            - 2 
+            - 3 
+          interconnectBaySet: 3 
+          interconnectMapTemplate:
+            interconnectMapEntryTemplates:
+              - enclosureIndex: 2
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "3"
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type2_name }}'
+              - enclosureIndex: 2
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "6"
+                          type: "Bay"
+                        - relativeValue: 2
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type1_name }}'
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "6"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type2_name }}'
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "3"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type1_name }}'
+              - enclosureIndex: 3
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "3"
+                          type: "Bay"
+                        - relativeValue: 3
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type2_name }}'
+              - enclosureIndex: 3
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "6"
+                          type: "Bay"
+                        - relativeValue: 3
+                          type: "Enclosure"
+                permittedInterconnectTypeName: '{{ interconnect_type2_name }}'
+      delegate_to: localhost
+
+    - name: Create a SAS Logical Interconnect Group
+      oneview_sas_logical_interconnect_group:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: "{{ lig2_name }}"
+          enclosureType: 'SY12000'
+          enclosureIndexes:
+            - 1
+          interconnectBaySet: 1
+          interconnectMapTemplate:
+            interconnectMapEntryTemplates:
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "4"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeUri: '{{ sas_interconnect_type_uri }}'
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "1"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeUri: '{{ sas_interconnect_type_uri }}'
+      delegate_to: localhost
+
+    - name: Create second SAS Logical Interconnect Group
+      oneview_sas_logical_interconnect_group:
+        config: "{{ config }}"
+        state: present
+        data:
+          name: "{{ lig3_name }}"
+          enclosureType: 'SY12000'
+          enclosureIndexes:
+            - 1
+          interconnectBaySet: 1
+          interconnectMapTemplate:
+            interconnectMapEntryTemplates:
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "4"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeUri: '{{ sas_interconnect_type_uri }}'
+              - enclosureIndex: 1
+                logicalLocation:
+                    locationEntries:
+                        - relativeValue: "1"
+                          type: "Bay"
+                        - relativeValue: 1
+                          type: "Enclosure"
+                permittedInterconnectTypeUri: '{{ sas_interconnect_type_uri }}'
+      delegate_to: localhost

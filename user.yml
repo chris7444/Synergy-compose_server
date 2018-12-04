@@ -17,8 +17,8 @@
 - hosts: all
   vars:
     config: "{{ playbook_dir }}/oneview_config.json"
-    user_name: testUser
-    email: sijeesh.kattumunda@hpe.com
+  vars_files:
+    - "{{ playbook_dir }}/vars/config.yml"
   tasks:
     - name: Create a User
       oneview_user:
@@ -26,12 +26,12 @@
         state: present
         data:
           userName: "{{ user_name }}"
-          password: myPass1234
+          password: "{{ password }}"
           emailAddress: "{{ email }}"
           enabled: true
-          fullName: testUser101
-          mobilePhone: '8095926219'
-          officePhone: '8095926219'
+          fullName: "{{ full_name }}"
+          mobilePhone: "{{ mobile_phone }}"
+          officePhone: "{{ office_phone }}"
           roles:
             - Read only
       delegate_to: localhost

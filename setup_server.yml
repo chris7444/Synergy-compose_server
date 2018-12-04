@@ -17,13 +17,8 @@
 - hosts: localhost
   vars:
     config: "oneview_config.json"
-    server_profile_template_name: Demo_server_profile_template1
-    server_hardware_type_name: SY 480 Gen9 3
-    enclosure_group_name: SYN03_EC
-    os_deployment_plan_name: RHEL-COPY
-    inventory_hostname: test_rhel
-    server_hardware_name: SYN03_Frame1, bay 1
-  
+  vars_files:
+    - "{{ playbook_dir }}/vars/config.yml"
   tasks:
     - name: Gather facts about os deployment plan
       oneview_os_deployment_plan_facts:
@@ -43,7 +38,7 @@
     - name: Gather facts about deployment network
       oneview_ethernet_network_facts:
         config: "{{ config }}"
-        name: vlan512
+        name: "{{ streamer_network_name }}"
 
     - name: Get the deployment network
       set_fact: deployment_network={{ ethernet_networks.0 }}
@@ -51,7 +46,7 @@
     - name: Gather facts about management network
       oneview_ethernet_network_facts:
         config: "{{ config }}"
-        name: vlan504 
+        name: "{{ management_network_name }}"
 
     - name: Get the management network
       set_fact: management_network={{ ethernet_networks.0 }}
@@ -161,8 +156,6 @@
                value: false
              - name: ManagementNIC1.constraint
                value: 'dhcp'
-         
-          scopesUri: "/rest/scopes/resources/rest/server-profiles/d36b6790-e0f9-42ff-966e-0ebe29b5baf6"  
         params:
           force: "True"
       delegate_to: localhost

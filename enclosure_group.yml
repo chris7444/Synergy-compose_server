@@ -1,0 +1,115 @@
+###
+# Copyright (2016-2017) Hewlett Packard Enterprise Development LP
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# You may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+###
+---
+- hosts: all
+  vars:
+    config: "{{ playbook_dir }}/oneview_config.json"
+  vars_files:
+    - "{{ playbook_dir }}/vars/config.yml"
+  tasks:
+    - name: Get facts about the IPv4 Subnet
+      oneview_id_pools_ipv4_subnet_facts:
+        config: "{{ config }}"
+        name: "{{ subnet_name }}"
+      delegate_to: localhost
+
+    - debug: var=id_pools_ipv4_subnets
+
+    - set_fact: subnet_uri="{{ id_pools_ipv4_subnets[0]['uri'] }}"
+
+    - name: Get facts about the range '{{ range_name }}' in the '{{ subnet_name }}'
+      oneview_id_pools_ipv4_range_facts:
+        config: "{{ config }}"
+        name: '{{ range_name }}'
+        subnetUri: '{{ subnet_uri }}'
+      delegate_to: localhost
+
+    - debug: var=id_pools_ipv4_ranges
+
+    - set_fact: range_uri='{{ id_pools_ipv4_ranges[0]['uri'] }}'
+
+    - name: Gather facts about deplyment network
+      oneview_ethernet_network_facts:
+        config: "{{ config }}"
+        name: "{{ deployment_network_name }}"
+      delegate_to: localhost
+
+    - debug: var=ethernet_networks
+
+    - set_fact: deployment_network_uri="{{ ethernet_networks[0]['uri'] }}"
+
+    - name: Gather facts about first Logical Interconnect Group 
+      oneview_logical_interconnect_group_facts:
+        config: "{{ config }}"
+        name: "{{ lig1_name }}"
+      delegate_to: localhost
+
+    - debug: var=logical_interconnect_groups
+
+    - set_fact: lig1_uri="{{ logical_interconnect_groups[0]['uri']}}" 
+
+    - name: Gather facts about a SAS Logical Interconnect Group 
+      oneview_sas_logical_interconnect_group_facts:
+        config: "{{ config }}"
+        name: "{{ sas_lig1_name }}"
+      delegate_to: localhost
+
+    - debug: var=sas_logical_interconnect_groups
+
+    - set_fact: lig2_uri="{{ sas_logical_interconnect_groups[0]['uri']}}" 
+
+    - name: Gather facts about second SAS Logical Interconnect Group 
+      oneview_sas_logical_interconnect_group_facts:
+        config: "{{ config }}"
+        name: "{{ sas_lig2_name }}"
+      delegate_to: localhost
+
+    - debug: var=sas_logical_interconnect_groups
+
+    - set_fact: lig3_uri="{{ sas_logical_interconnect_groups[0]['uri']}}" 
+
+    - name: Create an Enclosure Group
+      oneview_enclosure_group:
+        config: "{{ config }}"
+        state: present
+        data:
+            name: "{{ enclosure_group_name }}"
+            ipAddressingMode: "IpPool"
+            ipRangeUris: 
+              - "{{ range_uri }}"  
+            enclosureCount: 3
+            interconnectBayMappings:
+                - interconnectBay: 1
+                  enclosureIndex: 1
+                  logicalInterconnectGroupUri: "{{ lig2_uri }}"
+                - interconnectBay: 1
+                  enclosureIndex: 2
+                  logicalInterconnectGroupUri: "{{ lig3_uri }}"
+                - interconnectBay: 3
+                  logicalInterconnectGroupUri: "{{ lig1_uri }}"
+                - interconnectBay: 4
+                  enclosureIndex: 1
+                  logicalInterconnectGroupUri: "{{ lig2_uri }}"
+                - interconnectBay: 4
+                  enclosureIndex: 2
+                  logicalInterconnectGroupUri: "{{ lig3_uri }}"
+                - interconnectBay: 6
+                  logicalInterconnectGroupUri: "{{ lig1_uri }}"
+            osDeploymentSettings:
+              deploymentModeSettings:
+                deploymentMode: Internal 
+              manageOSDeployment: true
+      delegate_to: localhost

@@ -14,4 +14,10 @@
 # limitations under the License.
 ###
 ---
-- import_playbook: ip_pool_synergy.yml
+- import_playbook: user.yml
+- import_playbook: time_locale_configuration.yml
+- import_playbook: firmware_bundle.yml
+- import_playbook: ip_pool_and_networks.yml
+- import_playbook: logical_interconnect_group.yml 
+- import_playbook: enclosure_group.yml
+- import_playbook: setup_server.yml
